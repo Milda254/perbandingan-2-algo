@@ -10,8 +10,8 @@ import plotly.graph_objects as go
 from tensorflow.keras.models import load_model
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-# Pastikan r2_score diimport
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+# HAPUS r2_score karena tidak dipakai lagi
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN & CSS
@@ -301,31 +301,28 @@ with tab1:
     st.plotly_chart(fig_region, use_container_width=True)
 
     # --- 2. Grafik Faktor (Bar Chart Horizontal) ---
-    # BAGIAN INI TELAH DIUBAH DARI TREEMAP MENJADI BAR CHART SESUAI PERMINTAAN
     st.markdown("##### 🧩 Proporsi Faktor Penyebab Utama")
     
     valid_factors = [c for c in factor_cols if c in df_year.columns]
     
     if valid_factors:
-        # Hitung total per faktor di tahun tersebut
+        # Hitung total per faktor
         factor_sum = df_year[valid_factors].sum().sort_values(ascending=True)
-        # Ubah ke dataframe untuk plotting
         factor_df = factor_sum.reset_index()
         factor_df.columns = ["Faktor", "Total Kasus"]
 
-        # Buat Bar Chart Horizontal
+        # Bar Chart Horizontal
         fig_factor = px.bar(
             factor_df,
             x="Total Kasus",
             y="Faktor",
             orientation="h",
-            text_auto='.2s', # Format angka singkat (misal 1.2k)
+            text_auto='.2s', 
             template="plotly_white",
-            color="Total Kasus", # Warna gradasi berdasarkan jumlah
+            color="Total Kasus",
             color_continuous_scale="Reds",
             title=f"Total Kasus per Faktor Penyebab ({selected_year})"
         )
-        # Urutkan agar yang terbesar di atas
         fig_factor.update_layout(yaxis=dict(categoryorder="total ascending"), height=600)
         st.plotly_chart(fig_factor, use_container_width=True)
     else:
@@ -363,7 +360,6 @@ with tab2:
                 df_map,
                 geojson=geojson,
                 locations=REGION_COL,
-                # Key GeoJSON
                 featureidkey="properties.NAME_2", 
                 color=TARGET_COL,
                 color_continuous_scale="Reds",
@@ -418,7 +414,7 @@ with tab3:
     st.subheader("🔮 Simulasi & Prediksi (MLP vs RF)")
     st.info("Pilih wilayah, tahun masa depan, dan faktor penyebab. Faktor yang dipilih akan otomatis diisi nilai **Median**, sisanya **0**.")
 
-    with st.form("pred_form"):
+    with st.form("prediction_form"):
         c1, c2 = st.columns(2)
         with c1:
             st.markdown("**1. Parameter Wilayah**")
@@ -431,11 +427,10 @@ with tab3:
             # Faktor bersih (tanpa kata Nilai/Faktor di label)
             factor_inputs = st.multiselect("Faktor:", options=factor_cols)
             
-            # (Optional) Input nilai manual untuk faktor terpilih
+            # Input Dinamis hanya untuk faktor terpilih
             inputs = {}
             if factor_inputs:
                 for f in factor_inputs:
-                    # Label input hanya nama faktor
                     inputs[f] = st.number_input(f"{f}:", min_value=0, value=0)
 
         submit_pred = st.form_submit_button("🚀 Jalankan Prediksi")
@@ -450,7 +445,7 @@ with tab3:
             for r in regions_input:
                 for y in years_input:
                     row = {REGION_COL: r, YEAR_COL: y}
-                    # Isi faktor: Input User (jika ada) atau 0
+                    # Isi faktor
                     for f in factor_cols:
                         if f in inputs:
                             row[f] = inputs[f]
@@ -460,7 +455,6 @@ with tab3:
 
             # DataFrame Input
             input_df = pd.DataFrame(rows)
-            # Pastikan urutan kolom sesuai training
             input_df_final = input_df[feature_cols]
 
             try:
@@ -471,7 +465,7 @@ with tab3:
                 y_mlp = mlp_model.predict(X_pred).flatten()
                 y_rf = rf_model.predict(X_pred)
                 
-                # Format Output (Display Dataframe)
+                # Format Output
                 res_display = input_df[[REGION_COL, YEAR_COL]].copy()
                 res_display["Prediksi MLP"] = [f"{val:,.0f}" for val in y_mlp]
                 res_display["Prediksi RF"] = [f"{val:,.0f}" for val in y_rf]
@@ -480,7 +474,7 @@ with tab3:
                 st.success("✅ Prediksi Selesai!")
                 st.dataframe(res_display, use_container_width=True)
                 
-                # Visualisasi (Gunakan Data Asli Angka agar tidak error AttributeError)
+                # Visualisasi
                 res_plot = input_df[[REGION_COL, YEAR_COL]].copy()
                 res_plot["Prediksi MLP"] = y_mlp
                 res_plot["Prediksi RF"] = y_rf
@@ -536,7 +530,7 @@ with tab4:
 
 
 # ==========================================
-# TAB 5: EVALUASI MODEL
+# TAB 5: EVALUASI MODEL (NO R2)
 # ==========================================
 with tab5:
     st.subheader("📉 Evaluasi Performa Model")
@@ -555,30 +549,25 @@ with tab5:
         
         mae_mlp = mean_absolute_error(y_true, p_mlp)
         rmse_mlp = np.sqrt(mean_squared_error(y_true, p_mlp))
-        r2_mlp = r2_score(y_true, p_mlp)
         
         mae_rf = mean_absolute_error(y_true, p_rf)
         rmse_rf = np.sqrt(mean_squared_error(y_true, p_rf))
-        r2_rf = r2_score(y_true, p_rf)
 
-        # Kartu Metrik
+        # Kartu Metrik (TANPA R2)
         best_model_name = "MLP (Neural Network)" if mae_mlp < mae_rf else "Random Forest"
         best_mae_val = min(mae_mlp, mae_rf)
-        best_r2_val = max(r2_mlp, r2_rf)
 
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
         c1.metric("🏆 Model Terbaik", best_model_name)
         c2.metric("Rata-rata Error (MAE)", f"{best_mae_val:.0f} Kasus")
-        c3.metric("Akurasi (R²)", f"{best_r2_val:.1%}")
 
         st.markdown("---")
 
-        # Tabel Metrik
+        # Tabel Metrik (TANPA R2)
         met_df = pd.DataFrame({
             "Model": ["MLP (Neural Network)", "Random Forest"],
-            "MAE": [mae_mlp, mae_rf],
-            "RMSE": [rmse_mlp, rmse_rf],
-            "R2": [r2_mlp, r2_rf]
+            "MAE (Rata-rata Error)": [mae_mlp, mae_rf],
+            "RMSE (Error Kuadrat)": [rmse_mlp, rmse_rf]
         })
         st.table(met_df.set_index("Model").style.format("{:.2f}"))
 
@@ -594,19 +583,18 @@ with tab5:
         # --- INSIGHT KAYA ---
         improvement = abs(mae_mlp - mae_rf)
         
-        # Penulisan HTML tanpa indentasi agar dirender benar oleh Streamlit
         insight_html = f"""
 <div class='insight-box'>
-<div class='insight-title'>💡 Kesimpulan Evaluasi Menyeluruh</div>
-<div class='insight-content'>
-<p>Berdasarkan pengujian data tahun terakhir (<b>{test_yr}</b>), model <b>{best_model_name}</b> menunjukkan performa yang lebih unggul.</p>
-<p><b>Temuan Penting:</b></p>
-<ul>
-<li><b>Akurasi:</b> Model {best_model_name} memiliki error <b>{improvement:.2f}</b> poin lebih kecil.</li>
-<li><b>Konsistensi:</b> Sebaran prediksi model ini lebih mendekati garis ideal pada grafik di atas.</li>
-<li><b>Rekomendasi:</b> Gunakan model ini untuk prediksi kebijakan jangka pendek.</li>
-</ul>
-</div>
+    <div class='insight-title'>💡 Kesimpulan Evaluasi Menyeluruh</div>
+    <div class='insight-content'>
+        <p>Berdasarkan pengujian data tahun terakhir (<b>{test_yr}</b>), model <b>{best_model_name}</b> menunjukkan performa yang lebih unggul.</p>
+        <p><b>Temuan Penting:</b></p>
+        <ul>
+            <li><b>Akurasi:</b> Model {best_model_name} memiliki error <b>{improvement:.2f}</b> poin lebih kecil.</li>
+            <li><b>Konsistensi:</b> Sebaran prediksi model ini lebih mendekati garis ideal pada grafik di atas.</li>
+            <li><b>Rekomendasi:</b> Gunakan model ini untuk prediksi kebijakan jangka pendek.</li>
+        </ul>
+    </div>
 </div>
 """
         st.markdown(insight_html, unsafe_allow_html=True)
