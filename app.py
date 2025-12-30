@@ -262,7 +262,7 @@ with st.sidebar:
             <b>Copyright © 2025</b><br>
             Developed By:<br>
             <b>Milda Nabilah Al-hamaz</b><br>
-            NPM: 202210715059
+            NPM: 202210715079
         </div>
         """,
         unsafe_allow_html=True
